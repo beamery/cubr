@@ -86,6 +86,8 @@ export function TimerPanel({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [bluetoothStatus, setBluetoothStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'CONNECTED'>('DISCONNECTED');
     const timerRef = useRef<any>(null);
+    const lastSolveRef = useRef<SolveRecord | null>(null);
+    const onUpdateSolveRef = useRef<typeof onUpdateSolve>(onUpdateSolve);
 
     const handleImportClick = () => {
         fileInputRef.current?.click();
@@ -148,6 +150,8 @@ export function TimerPanel({
     useEffect(() => { timerStateRef.current = timerState; }, [timerState]);
     useEffect(() => { scrambleRef.current = scramble; }, [scramble]);
     useEffect(() => { activeEventRef.current = activeEvent; }, [activeEvent]);
+    useEffect(() => { lastSolveRef.current = lastSolve; }, [lastSolve]);
+    useEffect(() => { onUpdateSolveRef.current = onUpdateSolve; }, [onUpdateSolve]);
 
     const formatTime = useCallback((ms: number) => {
         const seconds = (ms / 1000).toFixed(2);
@@ -239,6 +243,24 @@ export function TimerPanel({
             if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
             
             const state = timerStateRef.current;
+
+            if (e.ctrlKey) {
+                if (lastSolveRef.current) {
+                    if (e.key === '1') {
+                        onUpdateSolveRef.current(lastSolveRef.current.id, { penalty: 'NONE' });
+                        e.preventDefault();
+                        return;
+                    } else if (e.key === '2') {
+                        onUpdateSolveRef.current(lastSolveRef.current.id, { penalty: '+2' });
+                        e.preventDefault();
+                        return;
+                    } else if (e.key === '3') {
+                        onUpdateSolveRef.current(lastSolveRef.current.id, { penalty: 'DNF' });
+                        e.preventDefault();
+                        return;
+                    }
+                }
+            }
             if (state === 'RUNNING') {
                 stopTimer();
                 if (e.code === 'Space') e.preventDefault();
