@@ -63,10 +63,12 @@ All UI changes MUST align with the **Kinetic** design specification:
 1. **Node Commands**: Due to PowerShell execution policies, you MUST always append `.cmd` to Node binaries. Use `npm.cmd`, `npx.cmd`, and `vercel.cmd` instead of the base commands.
 2. **Build Environment**: Always run build/deploy commands from Windows CMD or PowerShell. Avoid WSL to prevent `rolldown` native module binding errors.
 
-## Deployment Strategy (Vercel)
-1. **Command**: Use `npm.cmd run deploy` which triggers `npx.cmd vercel --prod`.
-2. **Method**: Direct local deployment via Vercel CLI (no Git bridge required for Mercurial projects).
-3. **SPA Configuration**: `vercel.json` rewrite rule is mandatory to support client-side routing on refresh.
+## Deployment & Version Control Strategy
+1. **Version Control**: Git is the official VCS. Pushing to GitHub repository `beamery/cubr` triggers automatic deployments.
+2. **Deployment Platform**: Vercel Git integration. Automated builds compile the app directly in the cloud on every `git push` to `main`.
+3. **Local Dev Commands**: Use `npm.cmd run dev` for local dev server (Vite) and `npm.cmd run build` to verify production builds locally.
+4. **Environment Variables**: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are configured in the Vercel dashboard for production builds.
+5. **SPA Configuration**: `vercel.json` rewrite rule is mandatory to support client-side routing on refresh.
 
 ## Tech Stack
 - **Framework**: Vite + React + TypeScript.
