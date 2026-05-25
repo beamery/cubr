@@ -28,6 +28,7 @@ dist-ssr
 
 .vercel
 .env*.local
+.env.production
 
 # Mercurial metadata
 .hg/
