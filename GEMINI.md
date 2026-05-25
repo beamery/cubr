@@ -58,6 +58,7 @@ All UI changes MUST align with the **Kinetic** design specification:
 1. **Automated Dev Server**: Ensure `npm run dev` is running and provide the link `http://localhost:5173`.
 2. **Cloud Ownership**: The agent manages Google Drive API scopes and ClientID setup. The USER should never read cloud docs.
 3. **Performance**: PR scanning MUST remain O(N). Avoid JS spread operator `(...)` on solve arrays as it causes stack exhaustion on large histories.
+4. **Git Pull Pre-requisite (Synchronization)**: ALWAYS pull the latest changes from GitHub before starting any new features or bug fixes (`git pull origin main`). This prevents merge conflicts and guarantees that development starts from the absolute latest codebase state.
 
 ## Windows Environment Rules (CRITICAL)
 1. **Node Commands**: Due to PowerShell execution policies, you MUST always append `.cmd` to Node binaries. Use `npm.cmd`, `npx.cmd`, and `vercel.cmd` instead of the base commands.
@@ -69,6 +70,7 @@ All UI changes MUST align with the **Kinetic** design specification:
 3. **Local Dev Commands**: Use `npm.cmd run dev` for local dev server (Vite) and `npm.cmd run build` to verify production builds locally.
 4. **Environment Variables**: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are configured in the Vercel dashboard for production builds.
 5. **SPA Configuration**: `vercel.json` rewrite rule is mandatory to support client-side routing on refresh.
+6. **Pre-development Sync**: Run `git pull origin main` first to ensure the local repository is in sync with the remote repository before making any file modifications.
 
 ## Tech Stack
 - **Framework**: Vite + React + TypeScript.
