@@ -94,6 +94,10 @@ To enable cloud backup and cross-device sync on your own infrastructure:
        event TEXT NOT NULL DEFAULT '333'
    );
 
+   -- Grant privileges to roles for Data API access (required after Supabase May 2026 update)
+   GRANT SELECT, INSERT, UPDATE, DELETE ON public.solves TO authenticated;
+   GRANT SELECT, INSERT, UPDATE, DELETE ON public.solves TO service_role;
+
    -- Enable Row Level Security (RLS)
    ALTER TABLE public.solves ENABLE ROW LEVEL SECURITY;
 
