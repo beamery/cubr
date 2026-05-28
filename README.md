@@ -97,6 +97,11 @@ To enable cloud backup and cross-device sync on your own infrastructure:
    -- Enable Row Level Security (RLS)
    ALTER TABLE public.solves ENABLE ROW LEVEL SECURITY;
 
+   -- Grant permissions explicitly to authenticated and service roles
+   -- (Required for Supabase projects after May 30, 2026 security updates)
+   GRANT SELECT, INSERT, UPDATE, DELETE ON public.solves TO authenticated;
+   GRANT SELECT, INSERT, UPDATE, DELETE ON public.solves TO service_role;
+
    -- Row Level Security Policies
    CREATE POLICY "Users can insert their own solves"
        ON public.solves FOR INSERT
