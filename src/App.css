@@ -1758,6 +1758,10 @@ html, body {
   .stat-cell.highlight {
     color: var(--kinetic-primary);
   }
+
+  .stat-cell.global-highlight {
+    color: var(--kinetic-success);
+  }
 }
 
 /* Desktop Table Defaults */
@@ -1798,6 +1802,10 @@ html, body {
 
 .stat-cell.highlight {
   color: var(--kinetic-primary);
+}
+
+.stat-cell.global-highlight {
+  color: var(--kinetic-success);
 }
 
 

@@ -108,37 +108,69 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ solves, onClose, o
         let gBest12 = Infinity;
         let gBest100 = Infinity;
 
-        const rollingAverages: Record<string, { b5: number, b12: number, b100: number, bestS: number, count: number }> = {};
+        const rollingAverages: Record<string, { 
+            b5: number; 
+            b12: number; 
+            b100: number; 
+            bestS: number; 
+            count: number;
+            isPRSingle: boolean;
+            isPRAo5: boolean;
+            isPRAo12: boolean;
+            isPRAo100: boolean;
+        }> = {};
         
         for (let i = 0; i < sortedSolves.length; i++) {
             const dateStr = getIsoDate(sortedSolves[i].date);
             if (!rollingAverages[dateStr]) {
-                rollingAverages[dateStr] = { b5: Infinity, b12: Infinity, b100: Infinity, bestS: Infinity, count: 0 };
+                rollingAverages[dateStr] = { 
+                    b5: Infinity, 
+                    b12: Infinity, 
+                    b100: Infinity, 
+                    bestS: Infinity, 
+                    count: 0,
+                    isPRSingle: false,
+                    isPRAo5: false,
+                    isPRAo12: false,
+                    isPRAo100: false
+                };
             }
 
             const currentS = sortedSolves[i].penalty === 'DNF' ? Infinity : (sortedSolves[i].penalty === '+2' ? sortedSolves[i].timeMs + 2000 : sortedSolves[i].timeMs);
-            if (currentS < gBestSingle) gBestSingle = currentS;
+            if (currentS < gBestSingle) {
+                gBestSingle = currentS;
+                rollingAverages[dateStr].isPRSingle = true;
+            }
             if (currentS < rollingAverages[dateStr].bestS) rollingAverages[dateStr].bestS = currentS;
             rollingAverages[dateStr].count++;
 
             if (i >= 4) {
                 const a5 = calculateAoRaw(sortedSolves.slice(i - 4, i + 1), 5);
                 if (a5 !== null && a5 !== Infinity) {
-                    if (a5 < gBest5) gBest5 = a5;
+                    if (a5 < gBest5) {
+                        gBest5 = a5;
+                        rollingAverages[dateStr].isPRAo5 = true;
+                    }
                     if (a5 < rollingAverages[dateStr].b5) rollingAverages[dateStr].b5 = a5;
                 }
             }
             if (i >= 11) {
                 const a12 = calculateAoRaw(sortedSolves.slice(i - 11, i + 1), 12);
                 if (a12 !== null && a12 !== Infinity) {
-                    if (a12 < gBest12) gBest12 = a12;
+                    if (a12 < gBest12) {
+                        gBest12 = a12;
+                        rollingAverages[dateStr].isPRAo12 = true;
+                    }
                     if (a12 < rollingAverages[dateStr].b12) rollingAverages[dateStr].b12 = a12;
                 }
             }
             if (i >= 99) {
                 const a100 = calculateAoRaw(sortedSolves.slice(i - 99, i + 1), 100);
                 if (a100 !== null && a100 !== Infinity) {
-                    if (a100 < gBest100) gBest100 = a100;
+                    if (a100 < gBest100) {
+                        gBest100 = a100;
+                        rollingAverages[dateStr].isPRAo100 = true;
+                    }
                     if (a100 < rollingAverages[dateStr].b100) rollingAverages[dateStr].b100 = a100;
                 }
             }
@@ -150,7 +182,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ solves, onClose, o
             bestSingle: rollingAverages[date].bestS === Infinity ? null : rollingAverages[date].bestS,
             best5: rollingAverages[date].b5 === Infinity ? null : rollingAverages[date].b5,
             best12: rollingAverages[date].b12 === Infinity ? null : rollingAverages[date].b12,
-            best100: rollingAverages[date].b100 === Infinity ? null : rollingAverages[date].b100
+            best100: rollingAverages[date].b100 === Infinity ? null : rollingAverages[date].b100,
+            isPRSingle: rollingAverages[date].isPRSingle,
+            isPRAo5: rollingAverages[date].isPRAo5,
+            isPRAo12: rollingAverages[date].isPRAo12,
+            isPRAo100: rollingAverages[date].isPRAo100
         }));
 
         const top10 = [...solves]
@@ -435,16 +471,16 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ solves, onClose, o
                                                                 <u>{monthDayLabel}</u>
                                                             </td>
                                                             <td className="count-cell">{row.dayCount}</td>
-                                                            <td className={`stat-cell ${ (row.bestSingle !== null && row.bestSingle === globalBest.single) ? 'highlight' : ''}`}>
+                                                            <td className={`stat-cell ${row.isPRSingle ? 'global-highlight' : ''}`}>
                                                                 {row.bestSingle ? formatTimeMs(row.bestSingle) : '--'}
                                                             </td>
-                                                            <td className={`stat-cell ${ (row.best5 !== null && row.best5 === globalBest.b5) ? 'highlight' : ''}`}>
+                                                            <td className={`stat-cell ${row.isPRAo5 ? 'global-highlight' : ''}`}>
                                                                 {row.best5 ? formatTimeMs(row.best5) : '--'}
                                                             </td>
-                                                            <td className={`stat-cell ${ (row.best12 !== null && row.best12 === globalBest.b12) ? 'highlight' : ''}`}>
+                                                            <td className={`stat-cell ${row.isPRAo12 ? 'global-highlight' : ''}`}>
                                                                 {row.best12 ? formatTimeMs(row.best12) : '--'}
                                                             </td>
-                                                            <td className={`stat-cell ${ (row.best100 !== null && row.best100 === globalBest.b100) ? 'highlight' : ''}`}>
+                                                            <td className={`stat-cell ${row.isPRAo100 ? 'global-highlight' : ''}`}>
                                                                 {row.best100 ? formatTimeMs(row.best100) : '--'}
                                                             </td>
                                                         </tr>
