@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+// Trigger rebuild to clear Vercel build queue
 import { supabase } from '../logic/supabase';
 import { SupabaseStorageProvider } from '../logic/SupabaseStorageProvider';
 import type { SolveRecord } from '../types_new';
