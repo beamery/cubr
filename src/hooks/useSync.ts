@@ -68,20 +68,42 @@ export function useSync() {
         try {
             // 1. Fetch remote state
             const remoteSolves = await storageProvider.loadSolves(user.id);
-            const remoteIds = new Set(remoteSolves.map(s => s.id));
+            const remoteMap = new Map<string, SolveRecord>(remoteSolves.map(s => [s.id, s]));
             console.log(`[Sync] Loaded ${remoteSolves.length} solves from cloud.`);
             
-            // 2. Merge Logic (Union)
+            // 2. Merge Logic (Union with Conflict Resolution)
             const localToMerge = currentSolvesOverride || solvesRef.current;
             const mergedMap = new Map<string, SolveRecord>();
             
-            // Add remote solves first
-            remoteSolves.forEach(s => mergedMap.set(s.id, s));
-            
-            // Add local solves (union)
+            // Loop through local first to process their sync state
             localToMerge.forEach(s => {
-                if (!mergedMap.has(s.id)) {
+                const r = remoteMap.get(s.id);
+                if (!r) {
+                    // Local-only solve (new solve)
                     mergedMap.set(s.id, s);
+                } else {
+                    // Conflict check: does local version differ from remote database?
+                    const isDifferent = s.penalty !== r.penalty || s.comment !== r.comment;
+                    if (!isDifferent) {
+                        // Identical, local version is fine
+                        mergedMap.set(s.id, s);
+                    } else {
+                        // They differ! Determine which one wins:
+                        // If it's NOT in syncedIds, local has unsynced changes. Local wins!
+                        if (!syncedIds.has(s.id)) {
+                            mergedMap.set(s.id, s);
+                        } else {
+                            // Already synced previously, so the remote update wins (set from another device)
+                            mergedMap.set(s.id, r);
+                        }
+                    }
+                }
+            });
+
+            // Add any remote solves that were not present in local
+            remoteSolves.forEach(r => {
+                if (!mergedMap.has(r.id)) {
+                    mergedMap.set(r.id, r);
                 }
             });
 
@@ -92,29 +114,41 @@ export function useSync() {
             setSolves(mergedSolves);
             localStorage.setItem('cubr_solves', JSON.stringify(mergedSolves));
 
-            // 4. Identify and push local-only solves
-            const unsynced = mergedSolves.filter(s => !remoteIds.has(s.id));
+            // 4. Identify and push local-only / updated solves
+            const unsynced = mergedSolves.filter(s => {
+                const r = remoteMap.get(s.id);
+                if (!r) return true; // not in remote database
+                return s.penalty !== r.penalty || s.comment !== r.comment; // edited locally
+            });
             
             if (unsynced.length > 0) {
-                console.log(`[Sync] Found ${unsynced.length} unsynced solves locally. Pushing to cloud...`);
+                console.log(`[Sync] Found ${unsynced.length} unsynced/modified solves locally. Pushing to cloud...`);
                 try {
                     await storageProvider.upsertSolves(user.id, unsynced);
                     console.log(`[Sync] Successfully pushed ${unsynced.length} solves.`);
                     
-                    const finalSyncedIds = new Set([...Array.from(remoteIds), ...unsynced.map(s => s.id)]);
+                    const finalSyncedIds = new Set(mergedSolves.map(s => s.id));
                     setSyncedIds(finalSyncedIds);
                     saveSyncedIds(finalSyncedIds);
                 } catch (pushErr) {
                     console.error('[Sync] Failed to push unsynced solves:', pushErr);
                     alert(`Cubr Sync: Failed to push unsynced solves. ${pushErr && typeof pushErr === 'object' ? JSON.stringify(pushErr, null, 2) : String(pushErr)}`);
-                    // Still update syncedIds based on what we KNOW is in the cloud
-                    setSyncedIds(remoteIds);
-                    saveSyncedIds(remoteIds);
+                    
+                    // Update syncedIds to only those that were NOT unsynced (i.e. already synced)
+                    const unsyncedSet = new Set(unsynced.map(s => s.id));
+                    const partiallySyncedIds = new Set(
+                        mergedSolves
+                            .map(s => s.id)
+                            .filter(id => !unsyncedSet.has(id))
+                    );
+                    setSyncedIds(partiallySyncedIds);
+                    saveSyncedIds(partiallySyncedIds);
                 }
             } else {
                 console.log('[Sync] No unsynced solves found locally.');
-                setSyncedIds(remoteIds);
-                saveSyncedIds(remoteIds);
+                const finalSyncedIds = new Set(mergedSolves.map(s => s.id));
+                setSyncedIds(finalSyncedIds);
+                saveSyncedIds(finalSyncedIds);
             }
 
         } catch (err) {
@@ -124,7 +158,7 @@ export function useSync() {
             setIsSyncing(false);
             console.log('[Sync] Synchronization finished.');
         }
-    }, [user, storageProvider, saveSyncedIds]);
+    }, [user, storageProvider, saveSyncedIds, syncedIds]);
  // REMOVED solves dependency
 
     // Auto-sync triggers
@@ -217,14 +251,28 @@ export function useSync() {
             return next;
         });
 
+        // Mark as unsynced locally until successfully confirmed in cloud
+        setSyncedIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            saveSyncedIds(next);
+            return next;
+        });
+
         if (user && updatedSolve) {
             try {
                 await storageProvider.saveSolve(user.id, updatedSolve);
+                setSyncedIds(prev => {
+                    const next = new Set(prev);
+                    next.add(id);
+                    saveSyncedIds(next);
+                    return next;
+                });
             } catch (err) {
                 console.error('[Sync] Error updating solve in cloud:', err);
             }
         }
-    }, [user, storageProvider]);
+    }, [user, storageProvider, saveSyncedIds]);
 
     const deleteSolve = useCallback(async (id: string) => {
         setSolves(prev => {
