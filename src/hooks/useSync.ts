@@ -18,6 +18,12 @@ export function useSync() {
         solvesRef.current = solves;
     }, [solves]);
 
+    // Use a ref for synced IDs to avoid dependency loops in callbacks
+    const syncedIdsRef = useRef<Set<string>>(new Set());
+    useEffect(() => {
+        syncedIdsRef.current = syncedIds;
+    }, [syncedIds]);
+
     // Helper to save synced IDs to localStorage
     const saveSyncedIds = useCallback((ids: Set<string>) => {
         localStorage.setItem('cubr_synced_ids', JSON.stringify(Array.from(ids)));
@@ -90,7 +96,7 @@ export function useSync() {
                     } else {
                         // They differ! Determine which one wins:
                         // If it's NOT in syncedIds, local has unsynced changes. Local wins!
-                        if (!syncedIds.has(s.id)) {
+                        if (!syncedIdsRef.current.has(s.id)) {
                             mergedMap.set(s.id, s);
                         } else {
                             // Already synced previously, so the remote update wins (set from another device)
@@ -158,7 +164,7 @@ export function useSync() {
             setIsSyncing(false);
             console.log('[Sync] Synchronization finished.');
         }
-    }, [user, storageProvider, saveSyncedIds, syncedIds]);
+    }, [user, storageProvider, saveSyncedIds]);
  // REMOVED solves dependency
 
     // Auto-sync triggers
