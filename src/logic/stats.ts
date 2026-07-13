@@ -379,9 +379,29 @@ export function getComparisonHistogramData(
         .sort((a, b) => a - b);
 
     const buckets: ComparisonBucket[] = [];
+
+    let currentIndex = 0;
+    while (currentIndex < currentTimes.length && currentTimes[currentIndex] < windowMin) {
+        currentIndex++;
+    }
+
+    let compareIndex = 0;
+    while (compareIndex < compareTimes.length && compareTimes[compareIndex] < windowMin) {
+        compareIndex++;
+    }
+
     for (let t = windowMin; t <= windowMax; t += bucketSizeMs) {
-        const currentCount = currentTimes.filter(time => time >= t && time < t + bucketSizeMs).length;
-        const compareCount = compareTimes.filter(time => time >= t && time < t + bucketSizeMs).length;
+        let currentCount = 0;
+        while (currentIndex < currentTimes.length && currentTimes[currentIndex] < t + bucketSizeMs) {
+            currentCount++;
+            currentIndex++;
+        }
+
+        let compareCount = 0;
+        while (compareIndex < compareTimes.length && compareTimes[compareIndex] < t + bucketSizeMs) {
+            compareCount++;
+            compareIndex++;
+        }
         
         buckets.push({
             time: t,
