@@ -153,6 +153,11 @@ export function TimerPanel({
     useEffect(() => { lastSolveRef.current = lastSolve; }, [lastSolve]);
     useEffect(() => { onUpdateSolveRef.current = onUpdateSolve; }, [onUpdateSolve]);
 
+    const onSolveCompleteRef = useRef<typeof onSolveComplete>(onSolveComplete);
+    useEffect(() => { onSolveCompleteRef.current = onSolveComplete; }, [onSolveComplete]);
+
+    const lastStopTimestampRef = useRef<number>(0);
+
     const formatTime = useCallback((ms: number) => {
         const seconds = (ms / 1000).toFixed(2);
         if (ms < 60000) return seconds;
@@ -197,7 +202,7 @@ export function TimerPanel({
         e?.preventDefault();
         const ms = parseManualTime(manualTime);
         if (ms !== null && ms > 0) {
-            onSolveComplete({
+            onSolveCompleteRef.current({
                 id: crypto.randomUUID(),
                 timeMs: ms,
                 penalty: 'NONE',
@@ -370,10 +375,11 @@ export function TimerPanel({
 
         startTimeRef.current = 0;
         timerStateRef.current = 'IDLE';
+        lastStopTimestampRef.current = Date.now();
 
         setTimeout(() => {
             setTimerState('IDLE');
-            onSolveComplete({
+            onSolveCompleteRef.current({
                 id: crypto.randomUUID(),
                 timeMs: finalTime,
                 penalty: 'NONE',
@@ -393,6 +399,10 @@ export function TimerPanel({
             setBluetoothStatus('CONNECTED');
             
             timer.addEventListener("start", () => {
+                if (Date.now() - lastStopTimestampRef.current < 1000) {
+                    console.log('[Bluetooth] Ignoring start event during lockout');
+                    return;
+                }
                 timerStateRef.current = 'RUNNING';
                 setTimerState('RUNNING');
                 setShowVisualizer(false); // Hide visualizer on Bluetooth start
@@ -416,6 +426,7 @@ export function TimerPanel({
 
             timer.addEventListener("stop", (e: any) => {
                 const timeMs = e.detail.currentTime;
+                lastStopTimestampRef.current = Date.now();
                 if (requestRef.current) cancelAnimationFrame(requestRef.current);
                 if (timerTextRef.current) {
                     timerTextRef.current.classList.remove('running');
@@ -426,13 +437,13 @@ export function TimerPanel({
                     startTimeRef.current = 0;
                     timerStateRef.current = 'IDLE';
                     setTimerState('IDLE');
-                    onSolveComplete({
+                    onSolveCompleteRef.current({
                         id: crypto.randomUUID(),
                         timeMs: timeMs,
                         penalty: 'NONE',
                         scramble: scrambleRef.current,
                         date: new Date(),
-                        event: activeEvent
+                        event: activeEventRef.current
                     });
                     generateScramble();
                 }, 100);
@@ -451,6 +462,9 @@ export function TimerPanel({
                     const value = new Uint8Array(e.target.value.buffer);
                     const status = value[3];
                     if (status === 0x06 || status === 0x01) {
+                        if (Date.now() - lastStopTimestampRef.current < 1000) {
+                            return;
+                        }
                         if (timerStateRef.current !== 'READY') {
                             timerStateRef.current = 'READY';
                             setTimerState('READY');
@@ -458,6 +472,9 @@ export function TimerPanel({
                         }
                     } 
                     else if (status === 0x03) {
+                        if (Date.now() - lastStopTimestampRef.current < 1000) {
+                            return;
+                        }
                         if (timerStateRef.current !== 'RUNNING') {
                             timerStateRef.current = 'RUNNING';
                             setTimerState('RUNNING');
@@ -466,6 +483,9 @@ export function TimerPanel({
                         }
                     }
                     else if (status === 0x04 || status === 0x05 || status === 0x07) {
+                        if (status === 0x04 || status === 0x07) {
+                            lastStopTimestampRef.current = Date.now();
+                        }
                         if (timerStateRef.current === 'READY' || timerStateRef.current === 'RUNNING') {
                             if (status === 0x05 && timerStateRef.current !== 'IDLE') {
                                 timerStateRef.current = 'IDLE';
