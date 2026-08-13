@@ -76,7 +76,6 @@ export function TimerPanel({
     const isManualMode = practiceMode === 'MANUAL';
     const [untimedBatch, setUntimedBatch] = useState<string[]>([]);
     const [untimedIndex, setUntimedIndex] = useState(0);
-    const [untimedCompleted, setUntimedCompleted] = useState(0);
     const [manualTime, setManualTime] = useState('');
     const [showVisualizer, setShowVisualizer] = useState(false);
     const [showPenaltyModal, setShowPenaltyModal] = useState(false);
@@ -219,38 +218,37 @@ export function TimerPanel({
         }
     };
 
-    const generateUntimedBatch = async (count = 10) => {
-        const batch: string[] = [];
-        for (let i = 0; i < count; i++) {
-            if (activeEventRef.current === '222') {
-                const faces = ['U', 'R', 'F'];
-                const modifiers = ['', '2', "'"];
-                const moves: string[] = [];
-                let lastFace = -1;
-                for (let j = 0; j < 11; j++) {
-                    let faceIndex;
-                    do {
-                        faceIndex = Math.floor(Math.random() * 3);
-                    } while (faceIndex === lastFace);
-                    const modifier = modifiers[Math.floor(Math.random() * 3)];
-                    moves.push(faces[faceIndex] + modifier);
-                    lastFace = faceIndex;
-                }
-                batch.push(moves.join(' '));
-            } else {
-                try {
-                    const s = await randomScrambleForEvent(activeEventRef.current);
-                    batch.push(s.toString());
-                } catch (e) {
-                    batch.push("R U R' U'");
-                }
+    const generateSingleScramble = async () => {
+        if (activeEventRef.current === '222') {
+            const faces = ['U', 'R', 'F'];
+            const modifiers = ['', '2', "'"];
+            const moves: string[] = [];
+            let lastFace = -1;
+            for (let j = 0; j < 11; j++) {
+                let faceIndex;
+                do {
+                    faceIndex = Math.floor(Math.random() * 3);
+                } while (faceIndex === lastFace);
+                const modifier = modifiers[Math.floor(Math.random() * 3)];
+                moves.push(faces[faceIndex] + modifier);
+                lastFace = faceIndex;
+            }
+            return moves.join(' ');
+        } else {
+            try {
+                const s = await randomScrambleForEvent(activeEventRef.current);
+                return s.toString();
+            } catch (e) {
+                return "R U R' U'";
             }
         }
-        setUntimedBatch(batch);
+    };
+
+    const startUntimedSession = async () => {
+        const first = await generateSingleScramble();
+        setUntimedBatch([first]);
         setUntimedIndex(0);
-        if (batch.length > 0) {
-            setScramble(batch[0]);
-        }
+        setScramble(first);
     };
 
     const handlePrevUntimedScramble = () => {
@@ -267,12 +265,15 @@ export function TimerPanel({
             setUntimedIndex(nextIdx);
             setScramble(untimedBatch[nextIdx]);
         } else {
-            await generateUntimedBatch(10);
+            const nextScramble = await generateSingleScramble();
+            const nextBatch = [...untimedBatch, nextScramble];
+            setUntimedBatch(nextBatch);
+            setUntimedIndex(nextBatch.length - 1);
+            setScramble(nextScramble);
         }
     };
 
     const handleCompleteUntimedSolve = async () => {
-        setUntimedCompleted(prev => prev + 1);
         await handleNextUntimedScramble();
     };
 
@@ -324,7 +325,7 @@ export function TimerPanel({
 
     useEffect(() => { 
         if (practiceMode === 'UNTIMED') {
-            generateUntimedBatch();
+            startUntimedSession();
         } else {
             generateScramble(); 
         }
@@ -955,8 +956,8 @@ export function TimerPanel({
                             >
                                 <ChevronLeft size={20} />
                             </button>
-                            <span style={{ fontSize: '1.1rem', fontWeight: 600, minWidth: '110px', textAlign: 'center' }}>
-                                Solve {untimedIndex + 1} of {untimedBatch.length}
+                            <span style={{ fontSize: '1.5rem', fontWeight: 700, minWidth: '110px', textAlign: 'center', color: 'var(--kinetic-primary)' }}>
+                                Solve {untimedIndex + 1}
                             </span>
                             <button 
                                 className="pill-icon-btn" 
@@ -985,7 +986,7 @@ export function TimerPanel({
                             <Check size={16} /> Complete Solve
                         </button>
                         <div style={{ fontSize: '0.85rem', opacity: 0.5, marginTop: '5px' }}>
-                            Completed this session: {untimedCompleted} • Press Space to advance
+                            Press Space to advance
                         </div>
                     </div>
                 )}
