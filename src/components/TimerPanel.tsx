@@ -229,8 +229,27 @@ export function TimerPanel({
 
     const generateScramble = async () => {
         try {
-            const s = await randomScrambleForEvent(activeEvent);
-            setScramble(s.toString());
+            if (activeEvent === '222') {
+                const faces = ['U', 'R', 'F'];
+                const modifiers = ['', '2', "'"];
+                const moves: string[] = [];
+                let lastFace = -1;
+                
+                for (let i = 0; i < 11; i++) {
+                    let faceIndex;
+                    do {
+                        faceIndex = Math.floor(Math.random() * 3);
+                    } while (faceIndex === lastFace);
+                    
+                    const modifier = modifiers[Math.floor(Math.random() * 3)];
+                    moves.push(faces[faceIndex] + modifier);
+                    lastFace = faceIndex;
+                }
+                setScramble(moves.join(' '));
+            } else {
+                const s = await randomScrambleForEvent(activeEvent);
+                setScramble(s.toString());
+            }
         } catch (e) {
             console.error('[Scramble Error]', e);
             setScramble('Error generating scramble');
