@@ -398,16 +398,48 @@ export function TimerPanel({
             timerRef.current = timer;
             setBluetoothStatus('CONNECTED');
             
-            timer.addEventListener("start", () => {
+            const triggerStartSolve = () => {
                 if (Date.now() - lastStopTimestampRef.current < 1000) {
                     console.log('[Bluetooth] Ignoring start event during lockout');
                     return;
                 }
+                if (timerStateRef.current === 'RUNNING') return;
+                
                 timerStateRef.current = 'RUNNING';
                 setTimerState('RUNNING');
                 setShowVisualizer(false); // Hide visualizer on Bluetooth start
                 startTimeRef.current = performance.now();
                 requestRef.current = requestAnimationFrame(updateTimer);
+            };
+
+            const triggerStopSolve = (timeMs: number) => {
+                if (timerStateRef.current !== 'RUNNING') return;
+                
+                timerStateRef.current = 'IDLE';
+                lastStopTimestampRef.current = Date.now();
+                if (requestRef.current) cancelAnimationFrame(requestRef.current);
+                if (timerTextRef.current) {
+                    timerTextRef.current.classList.remove('running');
+                    timerTextRef.current.classList.remove('ready');
+                    timerTextRef.current.textContent = formatTime(timeMs);
+                }
+                setTimeout(() => {
+                    startTimeRef.current = 0;
+                    setTimerState('IDLE');
+                    onSolveCompleteRef.current({
+                        id: crypto.randomUUID(),
+                        timeMs: timeMs,
+                        penalty: 'NONE',
+                        scramble: scrambleRef.current,
+                        date: new Date(),
+                        event: activeEventRef.current
+                    });
+                    generateScramble();
+                }, 100);
+            };
+
+            timer.addEventListener("start", () => {
+                triggerStartSolve();
             });
 
             timer.addEventListener("update", (e: any) => {
@@ -425,28 +457,7 @@ export function TimerPanel({
             });
 
             timer.addEventListener("stop", (e: any) => {
-                const timeMs = e.detail.currentTime;
-                lastStopTimestampRef.current = Date.now();
-                if (requestRef.current) cancelAnimationFrame(requestRef.current);
-                if (timerTextRef.current) {
-                    timerTextRef.current.classList.remove('running');
-                    timerTextRef.current.classList.remove('ready');
-                    timerTextRef.current.textContent = formatTime(timeMs);
-                }
-                setTimeout(() => {
-                    startTimeRef.current = 0;
-                    timerStateRef.current = 'IDLE';
-                    setTimerState('IDLE');
-                    onSolveCompleteRef.current({
-                        id: crypto.randomUUID(),
-                        timeMs: timeMs,
-                        penalty: 'NONE',
-                        scramble: scrambleRef.current,
-                        date: new Date(),
-                        event: activeEventRef.current
-                    });
-                    generateScramble();
-                }, 100);
+                triggerStopSolve(e.detail.currentTime);
             });
 
             timer.addEventListener("disconnect", () => {
@@ -459,7 +470,8 @@ export function TimerPanel({
                 const stateChar = await service.getCharacteristic('0000fff5-0000-1000-8000-00805f9b34fb');
                 
                 const handleStateUpdate = (e: any) => {
-                    const value = new Uint8Array(e.target.value.buffer);
+                    const valView = e.target.value;
+                    const value = new Uint8Array(valView.buffer, valView.byteOffset, valView.byteLength);
                     const status = value[3];
                     if (status === 0x06 || status === 0x01) {
                         if (Date.now() - lastStopTimestampRef.current < 1000) {
@@ -472,19 +484,21 @@ export function TimerPanel({
                         }
                     } 
                     else if (status === 0x03) {
-                        if (Date.now() - lastStopTimestampRef.current < 1000) {
-                            return;
-                        }
-                        if (timerStateRef.current !== 'RUNNING') {
-                            timerStateRef.current = 'RUNNING';
-                            setTimerState('RUNNING');
-                            startTimeRef.current = performance.now();
-                            requestRef.current = requestAnimationFrame(updateTimer);
-                        }
+                        triggerStartSolve();
                     }
                     else if (status === 0x04 || status === 0x05 || status === 0x07) {
                         if (status === 0x04 || status === 0x07) {
                             lastStopTimestampRef.current = Date.now();
+                            if (timerStateRef.current === 'RUNNING' && value.length >= 8) {
+                                const minutes = value[4];
+                                const seconds = value[5];
+                                const ms = value[6] + (value[7] << 8);
+                                const timeMs = (minutes * 60 + seconds) * 1000 + ms;
+                                if (timeMs > 0) {
+                                    console.log(`[Bluetooth] Stop backup triggered via notification status 0x${status.toString(16)}. Time: ${timeMs}ms`);
+                                    triggerStopSolve(timeMs);
+                                }
+                            }
                         }
                         if (timerStateRef.current === 'READY' || timerStateRef.current === 'RUNNING') {
                             if (status === 0x05 && timerStateRef.current !== 'IDLE') {
