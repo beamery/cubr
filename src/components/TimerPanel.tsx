@@ -73,6 +73,8 @@ export function TimerPanel({
     const activeEventRef = useRef<EventType>(activeEvent);
     
     const [practiceMode, setPracticeMode] = useState<'TIMER' | 'MANUAL' | 'UNTIMED'>('TIMER');
+    const practiceModeRef = useRef<'TIMER' | 'MANUAL' | 'UNTIMED'>('TIMER');
+    useEffect(() => { practiceModeRef.current = practiceMode; }, [practiceMode]);
     const isManualMode = practiceMode === 'MANUAL';
     const [untimedBatch, setUntimedBatch] = useState<string[]>([]);
     const [untimedIndex, setUntimedIndex] = useState(0);
@@ -497,6 +499,7 @@ export function TimerPanel({
             setBluetoothStatus('CONNECTED');
             
             const triggerStartSolve = () => {
+                if (practiceModeRef.current !== 'TIMER') return;
                 if (Date.now() - lastStopTimestampRef.current < 1000) {
                     console.log('[Bluetooth] Ignoring start event during lockout');
                     return;
@@ -511,6 +514,7 @@ export function TimerPanel({
             };
 
             const triggerStopSolve = (timeMs: number) => {
+                if (practiceModeRef.current !== 'TIMER') return;
                 if (timerStateRef.current !== 'RUNNING') return;
                 
                 timerStateRef.current = 'IDLE';
@@ -568,6 +572,7 @@ export function TimerPanel({
                 const stateChar = await service.getCharacteristic('0000fff5-0000-1000-8000-00805f9b34fb');
                 
                 const handleStateUpdate = (e: any) => {
+                    if (practiceModeRef.current !== 'TIMER') return;
                     const valView = e.target.value;
                     const value = new Uint8Array(valView.buffer, valView.byteOffset, valView.byteLength);
                     const status = value[3];
