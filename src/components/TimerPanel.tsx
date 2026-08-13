@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import type { TimerState, SolveRecord, EventType } from '../types_new'
 import { randomScrambleForEvent } from 'cubing/scramble'
-import { Trash2, BarChart2, History, Bluetooth, BluetoothConnected, ChevronDown, Upload, Download, Cloud, CloudOff, RefreshCw, Keyboard, Timer, Eye, Wrench } from 'lucide-react'
+import { Trash2, BarChart2, History, Bluetooth, BluetoothConnected, ChevronDown, Upload, Download, Cloud, CloudOff, RefreshCw, Keyboard, Timer, Eye, Wrench, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { connectSmartTimer } from 'cubing/bluetooth'
 import "cubing/twisty"
 import { parseCsTimerSession, createCsTimerExport } from '../logic/cstimerImport';
@@ -72,7 +72,11 @@ export function TimerPanel({
     const scrambleRef = useRef<string>('');
     const activeEventRef = useRef<EventType>(activeEvent);
     
-    const [isManualMode, setIsManualMode] = useState(false);
+    const [practiceMode, setPracticeMode] = useState<'TIMER' | 'MANUAL' | 'UNTIMED'>('TIMER');
+    const isManualMode = practiceMode === 'MANUAL';
+    const [untimedBatch, setUntimedBatch] = useState<string[]>([]);
+    const [untimedIndex, setUntimedIndex] = useState(0);
+    const [untimedCompleted, setUntimedCompleted] = useState(0);
     const [manualTime, setManualTime] = useState('');
     const [showVisualizer, setShowVisualizer] = useState(false);
     const [showPenaltyModal, setShowPenaltyModal] = useState(false);
@@ -215,6 +219,68 @@ export function TimerPanel({
         }
     };
 
+    const generateUntimedBatch = async (count = 10) => {
+        const batch: string[] = [];
+        for (let i = 0; i < count; i++) {
+            if (activeEventRef.current === '222') {
+                const faces = ['U', 'R', 'F'];
+                const modifiers = ['', '2', "'"];
+                const moves: string[] = [];
+                let lastFace = -1;
+                for (let j = 0; j < 11; j++) {
+                    let faceIndex;
+                    do {
+                        faceIndex = Math.floor(Math.random() * 3);
+                    } while (faceIndex === lastFace);
+                    const modifier = modifiers[Math.floor(Math.random() * 3)];
+                    moves.push(faces[faceIndex] + modifier);
+                    lastFace = faceIndex;
+                }
+                batch.push(moves.join(' '));
+            } else {
+                try {
+                    const s = await randomScrambleForEvent(activeEventRef.current);
+                    batch.push(s.toString());
+                } catch (e) {
+                    batch.push("R U R' U'");
+                }
+            }
+        }
+        setUntimedBatch(batch);
+        setUntimedIndex(0);
+        if (batch.length > 0) {
+            setScramble(batch[0]);
+        }
+    };
+
+    const handlePrevUntimedScramble = () => {
+        if (untimedIndex > 0) {
+            const nextIdx = untimedIndex - 1;
+            setUntimedIndex(nextIdx);
+            setScramble(untimedBatch[nextIdx]);
+        }
+    };
+
+    const handleNextUntimedScramble = async () => {
+        if (untimedIndex < untimedBatch.length - 1) {
+            const nextIdx = untimedIndex + 1;
+            setUntimedIndex(nextIdx);
+            setScramble(untimedBatch[nextIdx]);
+        } else {
+            await generateUntimedBatch(10);
+        }
+    };
+
+    const handleCompleteUntimedSolve = async () => {
+        setUntimedCompleted(prev => prev + 1);
+        await handleNextUntimedScramble();
+    };
+
+    const handleCompleteUntimedSolveRef = useRef<() => void>(() => {});
+    useEffect(() => {
+        handleCompleteUntimedSolveRef.current = handleCompleteUntimedSolve;
+    });
+
     const updateTimer = useCallback(() => {
         const start = startTimeRef.current;
         if (start) {
@@ -257,12 +323,23 @@ export function TimerPanel({
     };
 
     useEffect(() => { 
-        generateScramble(); 
-    }, [activeEvent, solves.length]);
+        if (practiceMode === 'UNTIMED') {
+            generateUntimedBatch();
+        } else {
+            generateScramble(); 
+        }
+    }, [activeEvent, solves.length, practiceMode]);
 
     // Keyboard Listeners
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (practiceMode === 'UNTIMED') {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    handleCompleteUntimedSolveRef.current();
+                }
+                return;
+            }
             if (isManualMode) return;
             if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
             
@@ -300,6 +377,7 @@ export function TimerPanel({
         };
 
         const handleKeyUp = (e: KeyboardEvent) => {
+            if (practiceMode === 'UNTIMED') return;
             if (isManualMode) return;
             if (e.code === 'Space') {
                 const state = timerStateRef.current;
@@ -317,10 +395,10 @@ export function TimerPanel({
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('keyup', handleKeyUp);
         };
-    }, [isManualMode]);
+    }, [isManualMode, practiceMode]);
 
     const handlePointerDown = (e: React.PointerEvent) => {
-        if (isManualMode) return;
+        if (isManualMode || practiceMode === 'UNTIMED') return;
         const current = timerStateRef.current;
         
         if (current === 'RUNNING') {
@@ -348,7 +426,7 @@ export function TimerPanel({
     };
 
     const handlePointerUp = () => {
-        if (isManualMode) return;
+        if (isManualMode || practiceMode === 'UNTIMED') return;
         const current = timerStateRef.current;
         if (current === 'HOLDING') {
             cancelHolding();
@@ -619,14 +697,30 @@ export function TimerPanel({
                     <div className="pill-divider desktop-only" />
 
                     <button 
-                        className={`pill-icon-btn desktop-only ${isManualMode ? 'active' : ''}`}
+                        className={`pill-icon-btn ${practiceMode === 'TIMER' ? 'active' : ''}`}
+                        onClick={() => setPracticeMode('TIMER')}
+                        title="Timer Mode"
+                    >
+                        <Timer size={18} />
+                    </button>
+
+                    <button 
+                        className={`pill-icon-btn ${practiceMode === 'MANUAL' ? 'active' : ''}`}
                         onClick={() => {
-                            setIsManualMode(!isManualMode);
+                            setPracticeMode('MANUAL');
                             setTimeout(() => manualInputRef.current?.focus(), 10);
                         }}
-                        title="Toggle Manual Input"
+                        title="Manual Input Mode"
                     >
-                        {isManualMode ? <Timer size={18} /> : <Keyboard size={18} />}
+                        <Keyboard size={18} />
+                    </button>
+
+                    <button 
+                        className={`pill-icon-btn ${practiceMode === 'UNTIMED' ? 'active' : ''}`}
+                        onClick={() => setPracticeMode('UNTIMED')}
+                        title="Untimed Practice Mode"
+                    >
+                        <Eye size={18} />
                     </button>
 
                     <div className="pill-divider" />
@@ -829,7 +923,7 @@ export function TimerPanel({
             </div>
 
             <div className="kinetic-timer-area">
-                {isManualMode ? (
+                {practiceMode === 'MANUAL' && (
                     <form onSubmit={handleManualSubmit} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
                         <input 
                             ref={manualInputRef}
@@ -841,9 +935,58 @@ export function TimerPanel({
                             autoFocus
                         />
                     </form>
-                ) : (
+                )}
+                {practiceMode === 'TIMER' && (
                     <div ref={timerTextRef} className={`timer-display ${timerState.toLowerCase()}`}>
                         {timerState === 'IDLE' && lastSolve ? formatTime(lastSolve.penalty === '+2' ? lastSolve.timeMs + 2000 : lastSolve.timeMs) : (timerState === 'RUNNING' ? '0.00' : '0.00')}
+                    </div>
+                )}
+                {practiceMode === 'UNTIMED' && (
+                    <div className="untimed-area" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%', padding: '20px 0' }}>
+                        <div style={{ fontSize: '1.25rem', opacity: 0.6, fontWeight: 500 }}>
+                            Untimed Practice
+                        </div>
+                        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                            <button 
+                                className="pill-icon-btn" 
+                                onClick={handlePrevUntimedScramble} 
+                                disabled={untimedIndex === 0}
+                                style={{ opacity: untimedIndex === 0 ? 0.3 : 1, pointerEvents: untimedIndex === 0 ? 'none' : 'auto' }}
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 600, minWidth: '110px', textAlign: 'center' }}>
+                                Solve {untimedIndex + 1} of {untimedBatch.length}
+                            </span>
+                            <button 
+                                className="pill-icon-btn" 
+                                onClick={handleNextUntimedScramble}
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
+                        <button 
+                            className="action-btn" 
+                            style={{ 
+                                padding: '10px 24px', 
+                                borderRadius: '30px', 
+                                border: 'none', 
+                                background: 'var(--accent-gradient, linear-gradient(135deg, #00F2FE 0%, #4FACFE 100%))',
+                                color: '#030712',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                boxShadow: '0 4px 15px rgba(0, 242, 254, 0.3)'
+                            }}
+                            onClick={handleCompleteUntimedSolve}
+                        >
+                            <Check size={16} /> Complete Solve
+                        </button>
+                        <div style={{ fontSize: '0.85rem', opacity: 0.5, marginTop: '5px' }}>
+                            Completed this session: {untimedCompleted} • Press Space to advance
+                        </div>
                     </div>
                 )}
             </div>
