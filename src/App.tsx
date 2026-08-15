@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import './App.css'
 import { TimerPanel } from './components/TimerPanel';
 import { RollingHistory } from './components/RollingHistory';
@@ -103,9 +103,9 @@ export default function App() {
   const globalBests = sessionStats?.global || { single: null, b3: null, b5: null, b12: null, b25: null, b50: null, b100: null };
   const dailyBests = sessionStats?.daily || { b3: null, b5: null, b12: null, b25: null, b50: null, b100: null };
 
-  const handleSolveComplete = (solve: SolveRecord) => {
-    addSolve({ ...solve, event: activeEvent });
-  };
+  const handleSolveComplete = useCallback((solve: SolveRecord) => {
+    addSolve(solve);
+  }, [addSolve]);
 
 
   return (
