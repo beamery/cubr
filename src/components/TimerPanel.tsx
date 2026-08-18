@@ -733,9 +733,9 @@ export function TimerPanel({
                         <Eye size={18} />
                     </button>
 
-                    <div className="pill-divider" />
+                    <div className="pill-divider desktop-only" />
                     
-                    <button className="pill-icon-btn" onClick={handleImportClick} title="Import csTimer Session">
+                    <button className="pill-icon-btn desktop-only" onClick={handleImportClick} title="Import csTimer Session">
                         <Download size={18} />
                     </button>
                     <input 
@@ -746,9 +746,11 @@ export function TimerPanel({
                         onChange={handleFileChange}
                     />
 
-                    <button className="pill-icon-btn" onClick={handleExportClick} title="Export csTimer Session">
+                    <button className="pill-icon-btn desktop-only" onClick={handleExportClick} title="Export csTimer Session">
                         <Upload size={18} />
                     </button>
+
+                    <div className="pill-divider" />
 
                     <button className="pill-icon-btn" onClick={onShowAnalytics} title="Show Analytics">
                         <BarChart2 size={18} />
