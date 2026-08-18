@@ -681,7 +681,7 @@ export function TimerPanel({
             <div className="system-pill-container">
                 <div className="system-pill" onPointerDown={e => e.stopPropagation()}>
                     <button 
-                        className={`pill-icon-btn ${bluetoothStatus === 'CONNECTED' ? 'active' : ''}`}
+                        className={`pill-icon-btn desktop-only ${bluetoothStatus === 'CONNECTED' ? 'active' : ''}`}
                         onClick={handleBluetoothConnect}
                         title="Connect Smart Timer"
                     >
@@ -689,7 +689,7 @@ export function TimerPanel({
                          <Bluetooth size={18} className={bluetoothStatus === 'CONNECTING' ? 'spinning' : ''} />}
                     </button>
 
-                    <div className="pill-divider" />
+                    <div className="pill-divider desktop-only" />
 
                     <div className="event-selector-wrapper">
                         <select 
