@@ -456,6 +456,7 @@ export function TimerPanel({
         setTimerState('RUNNING');
         setShowVisualizer(false); // Hide visualizer on start
         setShowPenaltyModal(false); // Hide penalty modal on start
+        requestWakeLock();
         startTimeRef.current = performance.now();
         requestRef.current = requestAnimationFrame(updateTimer);
     };
@@ -476,6 +477,7 @@ export function TimerPanel({
         startTimeRef.current = 0;
         timerStateRef.current = 'IDLE';
         lastStopTimestampRef.current = Date.now();
+        requestWakeLock();
 
         setTimeout(() => {
             setTimerState('IDLE');
@@ -509,6 +511,7 @@ export function TimerPanel({
                 timerStateRef.current = 'RUNNING';
                 setTimerState('RUNNING');
                 setShowVisualizer(false); // Hide visualizer on Bluetooth start
+                requestWakeLock();
                 startTimeRef.current = performance.now();
                 requestRef.current = requestAnimationFrame(updateTimer);
             };
@@ -520,6 +523,7 @@ export function TimerPanel({
                 timerStateRef.current = 'IDLE';
                 lastStopTimestampRef.current = Date.now();
                 if (requestRef.current) cancelAnimationFrame(requestRef.current);
+                requestWakeLock();
                 if (timerTextRef.current) {
                     timerTextRef.current.classList.remove('running');
                     timerTextRef.current.classList.remove('ready');

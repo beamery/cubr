@@ -5,15 +5,18 @@ const SILENT_MP4 = "data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28ybXA0MQ
 
 /**
  * Enhanced Screen Wake Lock Hook
- * - Automatically stays awake while the tab is visible.
+ * - Automatically stays awake while the tab is visible by listening to user gestures.
  * - Handles native Screen Wake Lock API with auto-reacquisition on visibility change.
  * - Falls back to a DOM-attached video loop for iOS/older browsers.
  */
 export function useWakeLock() {
     const wakeLockRef = useRef<any>(null);
     const videoRef = useRef<HTMLVideoElement | null>(null);
+    const isLockedRef = useRef<boolean>(false);
 
     const releaseWakeLock = useCallback(async () => {
+        isLockedRef.current = false;
+        
         // Stop video fallback
         if (videoRef.current) {
             videoRef.current.pause();
@@ -62,14 +65,29 @@ export function useWakeLock() {
                     wakeLockRef.current = null;
                 });
                 wakeLockRef.current = lock;
+                isLockedRef.current = true;
                 console.log('[WakeLock] Native lock active');
             } catch (err) {
                 console.error('[WakeLock] Native request failed', err);
             }
+        } else {
+            isLockedRef.current = true;
         }
     }, []);
 
     useEffect(() => {
+        const handleInteraction = async () => {
+            if (!isLockedRef.current) {
+                console.log('[WakeLock] User interaction gesture detected, requesting lock');
+                await requestWakeLock();
+            }
+        };
+
+        // Add broad user gesture listeners to capture the first interaction
+        window.addEventListener('click', handleInteraction);
+        window.addEventListener('touchstart', handleInteraction, { passive: true });
+        window.addEventListener('keydown', handleInteraction);
+
         const handleVisibilityChange = async () => {
             if (document.visibilityState === 'visible') {
                 await requestWakeLock();
@@ -80,10 +98,13 @@ export function useWakeLock() {
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         
-        // Initial request
+        // Initial request on load
         handleVisibilityChange();
 
         return () => {
+            window.removeEventListener('click', handleInteraction);
+            window.removeEventListener('touchstart', handleInteraction);
+            window.removeEventListener('keydown', handleInteraction);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             releaseWakeLock();
             if (videoRef.current?.parentNode) {
